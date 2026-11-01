@@ -1,35 +1,70 @@
 # zcode-session-usage
 
-ZCode（智谱 Z.AI 的 Agentic Coding 工具）插件：**在每条回复末尾自动显示会话用量统计**，Cherry Studio 风格。
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)](#compatibility)
+[![Python](https://img.shields.io/badge/python-3.x%20stdlib%20only-green)](#compatibility)
+[![ZCode](https://img.shields.io/badge/for-ZCode%20%F0%9F%A4%96-7c3aed)](https://zcode.z.ai)
 
-## 功能
+**English** | [中文说明](README.zh-CN.md)
 
-- **自动页脚**：每条回复末尾自动附加一行 `— 105.1万 Tokens · 28.9 Token/秒`（累计 Token 数与模型生成速度，格式与 [Cherry Studio](https://github.com/CherryHQ/cherry-studio) 的消息统计一致）
-- **`/usage` 完整面板**：输入/输出 Token、缓存读取/未缓存/缓存写入、推理（估算）、模型生成 TPS、端到端吞吐/耗时、费用（本地估算，需配置单价）
-- **`/usage --json`**：原始 JSON，便于脚本处理
-- 数据来自 ZCode 本地模型 I/O 日志（`~/.zcode/cli/rollout/`），不上传任何数据，离线可用
+A [ZCode](https://zcode.z.ai) plugin that **automatically appends a live session-usage footer to every assistant reply** — the same style as [Cherry Studio](https://github.com/CherryHQ/cherry-studio)'s message stats:
 
-## 安装
+```text
+— 1718.6万 Tokens · 37.9 Token/秒
+```
 
-1. 打开 **插件市场 → 添加 → 添加插件市场**
-2. 粘贴仓库地址并确认风险提示：
-   - GitHub：`2237423553/zcode-session-usage`
-   - 其他 git 托管（Gitee 等）：粘贴完整 `https://<host>/<owner>/<repo>.git` 地址
-3. 在 **个人** 页找到 **会话用量 / Session Usage**，点 **安装**
-4. **新建一个任务**（重要：ZCode 在会话启动时注册插件钩子，老会话加载不到）发两条消息——第 2 条回复起，页脚就会自动出现
+It also ships a `/usage` slash command that renders a full stats panel: input/output tokens, cache hits, model TPS, end-to-end throughput and a local cost estimate.
 
-> 想看完整面板：输入 `/usage`。费用默认显示"—"，编辑 `prices.json` 填入模型单价（US$/1M tokens）后自动估算。
+```text
+## 📊 Token 使用 · sess_9ee05bb7…
 
-## 工作原理
+GLM-5.3-Flash · account:zai-start-plan
 
-- `UserPromptSubmit` 钩子在每条用户消息时运行统计脚本，读取当前会话的模型 I/O 日志并注入累计用量，模型据此在回复末尾附加页脚（数字截至该条回复开始前）
-- ZCode 默认会裁剪模型 I/O 日志（`modelIoFullRetentionEnabled`），页脚显示的是日志保留窗口内的累计
+| 输入 | 输出 | 模型生成 TPS |
+|---|---|---|
+| 4,915,016 Tokens | 26,867 Tokens | 38.8 Token/秒 |
 
-## 兼容性
+费用（本地估算）：US$0.6127（after configuring prices.json）
 
-- 需要系统 PATH 中有 `python`（仅标准库）
-- Windows / macOS / Linux 均可（脚本只做增量文件解析）
+| 明细 | 数值 |
+|---|---|
+| 模型调用 | 61 次（main_turn 61 次；重试 0 次） |
+| ├ 缓存读取 | 3,822,656 Tokens |
+| ├ 未缓存 | 136,623 Tokens |
+| 推理 | ≈12,778 Tokens（estimated from chars） |
+| 首 Token 耗时 | —（not recorded in logs） |
+| 端到端吞吐 | 38.3 Token/秒 |
+```
+
+## Features
+
+- **Automatic footer on every reply** — a `UserPromptSubmit` hook injects the live cumulative usage into the conversation; the model appends `— N万 Tokens · X.X Token/秒` to each reply. Zero manual steps.
+- **`/usage` full panel** — input / output / cache read / cache write / uncached split, reasoning estimate, model generation TPS, end-to-end duration & throughput, per-model breakdown.
+- **Local cost estimate** — put your model prices (US$/1M tokens) into `prices.json` and every panel shows a dollar figure.
+- **100% local & offline** — reads ZCode's own model-I/O logs under `~/.zcode/cli/rollout/`. Nothing is uploaded, no API keys involved.
+- **Stdlib-only Python** — one script, no dependencies.
+
+## Install
+
+1. In ZCode open **Plugin Marketplace → Add → Add Plugin Marketplace**
+2. Paste: `2237423553/zcode-session-usage` (or the full `https://github.com/2237423553/zcode-session-usage.git` — any git host works)
+3. In **Personal** find **Session Usage / 会话用量** and click **Install**
+4. **Start a new task** (important: ZCode registers plugin hooks when a session starts) and send two messages — from the 2nd reply on, the footer appears automatically
+
+> Want the full panel? Type `/usage`. Cost shows `—` until you add your model's prices to `session-usage/skills/session-usage/scripts/prices.json`.
+
+## How it works
+
+- On every user message the hook runs the stats script, reads the current session's model-I/O log (one JSONL line per model call: tokens, cache, duration) and injects the cumulative numbers; the model then appends the footer (numbers cover everything **before** that reply starts).
+- ZCode trims model-I/O logs by default (`modelIoFullRetentionEnabled`), so "cumulative" means the retained window.
+- Reasoning tokens are estimated from text length (CJK ≈ 1 token/char, other ≈ 0.25 token/char); per-token TTFT is not in the logs, hence the `—`.
+
+## Compatibility
+
+- Needs `python` (3.x, stdlib only) on PATH
+- Windows / macOS / Linux
+- ZCode plugin format: skills + commands + hooks (manifest `.zcode-plugin/plugin.json`)
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
